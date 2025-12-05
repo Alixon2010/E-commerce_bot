@@ -1,0 +1,43 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+### main template
+pycache/
+*.py[cod]
+*.pyo
+*.pyd
+*.sqlite3
+*.egg-info/
+
+
+venv/
+env/
+.venv/
+.env
+
+.idea/
+*.iml
+*.iws
+*.ipr
+
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*.log
+
+*.cover
+.coverage
+htmlcov/
+.tox/
+nosetests.xml
+coverage.xml
+*.mo
+*.pot
