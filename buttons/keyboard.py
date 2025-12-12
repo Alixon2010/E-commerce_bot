@@ -1,4 +1,5 @@
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+from aiogram.types import KeyboardButton, ReplyKeyboardMarkup
+
 
 def create_keyboard(
     buttons,
@@ -6,14 +7,18 @@ def create_keyboard(
     resize=True,
     one_time=True,
 ) -> ReplyKeyboardMarkup:
-    keyboard = ReplyKeyboardMarkup(resize_keyboard=resize, one_time_keyboard=one_time, keyboard=[])
+    keyboard = ReplyKeyboardMarkup(
+        resize_keyboard=resize, one_time_keyboard=one_time, keyboard=[]
+    )
 
     if all(isinstance(i, list) for i in buttons):
         for row in buttons:
             keyboard_row = []
             for b in row:
                 if len(b) == 2 and b[1] == "location":
-                    keyboard_row.append(KeyboardButton(text=b[0], request_location=True))
+                    keyboard_row.append(
+                        KeyboardButton(text=b[0], request_location=True)
+                    )
                 elif len(b) == 2 and b[1] == "contact":
                     keyboard_row.append(KeyboardButton(text=b[0], request_contact=True))
                 else:

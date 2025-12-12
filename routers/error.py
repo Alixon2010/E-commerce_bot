@@ -10,13 +10,10 @@ async def error_handler(event: ErrorEvent):
 
     print(f"⚠️ Error: {type(error).__name__}: {error}")
 
-    # Можно отправить сообщение пользователю
-    try:
-        if hasattr(event.update, 'message'):
-            await event.update.message.answer("😕 An error occurred. Please try again.")
-        elif hasattr(event.update, 'callback_query'):
-            await event.update.callback_query.message.answer("😕 An error occurred. Please try again.")
-    except:
-        pass
+    if hasattr(event.update, 'message'):
+        await event.update.message.answer("😕 An error occurred. Please try again.")
+    elif hasattr(event.update, 'callback_query'):
+        await event.update.callback_query.message.answer("😕 An error occurred. "
+                                                         "Please try again.")
 
     return True

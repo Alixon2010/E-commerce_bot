@@ -1,68 +1,139 @@
-
-from aiogram import Router, F
+from aiogram import F, Router
 from aiogram.types import Message
 
 from database.base import async_session
-from database.models import create_user, update_user_token, get_user
+from database.models import get_or_create_user, update_user_token
 from settings import settings
 from utils import request_post
+import re
 
 router = Router()
 
+
+def is_valid_email(email: str) -> bool:
+    """Simple email validation"""
+    pattern = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
+    return re.match(pattern, email) is not None
+
+
 @router.message(F.text.startswith("/register"))
 async def register(message: Message):
-    reg = message.text.split()[1:]
+    """Handle user registration - no errors, user can register multiple times"""
+    try:
+        # Parse command
+        parts = message.text.split()
+        if len(parts) < 4:
+            await message.answer(
+                "Usage: /register email password password_confirm\n"
+                "Example: <code>/register test@example.com pass123 pass123</code>"
+            )
+            return
 
-    if len(reg) != 3:
-        await message.answer("/register `email` `password` `password_confirm`")
-        return
+        _, email, password, password_confirm = parts
 
-    url = f"{settings.HOST}/api/v1/register/"
+        email = email.strip().lower()
+        password = password.strip()
+        password_confirm = password_confirm.strip()
 
-    response = await request_post(url, email=reg[0], password=reg[1], password_confirm=reg[2])
+        if not is_valid_email(email):
+            await message.answer(
+                "❌ Please enter a valid email address (e.g., user@example.com)"
+            )
+            return
 
-    if response.status_code == 201:
+        if len(password) < 6:
+            await message.answer("❌ Password must be at least 6 characters")
+            return
+
+        if password != password_confirm:
+            await message.answer("❌ Passwords do not match")
+            return
+
         user_id = message.from_user.id
         async with async_session() as session:
-            await create_user(session, user_id)
+            await get_or_create_user(session, user_id)  # ← No duplicate errors
 
-    res = response.json()
+        url = f"{settings.HOST}/api/v1/register/"
+        response = await request_post(
+            url, email=email, password=password, password_confirm=password_confirm
+        )
 
-    if res.get("email") is not None:
-        await message.answer(response.json()["email"].get("message", "Error :("))
-        return
+        if response.status_code == 201:
+            await message.answer(
+                "✅ Registration successful!\n\n"
+                "You can now login with:\n"
+                f"<code>/login {email} {password}</code>\n\n"
+                "Start shopping with /products"
+            )
+        else:
+            data = response.json()
+            error_lines = []
+            for key, value in data.items():
+                if isinstance(value, list):
+                    error_lines.append(f"{key}: {', '.join(value)}")
+                elif isinstance(value, str):
+                    error_lines.append(f"{key}: {value}")
 
-    if isinstance(res.get("message"), list):
-        await message.answer("\n".join(i for i in res.get("message")))
-        return
+            if error_lines:
+                await message.answer("❌ " + "\n".join(error_lines)[:1000])
+            else:
+                await message.answer("❌ Registration failed")
 
-    await message.answer(str(res.get("message", "Error :(")))
+    except Exception as e:
+        error = str(e)
+        if len(error) > 100:
+            error = error[:100] + "..."
+        await message.answer(f"❌ Error: {error}")
+
 
 @router.message(F.text.startswith("/login"))
 async def login(message: Message):
-    l = message.text.split()[1:]
-    if len(l) != 2:
-        await message.answer("/login `identifier` `password`")
-        return
-
-    url = f"{settings.HOST}/api/v1/token/"
-
-    response = await request_post(url, identifier=l[0], password=l[1])
-
-    if response.status_code == 200:
-        user_id = message.from_user.id
-        async with async_session() as session:
-            if not await get_user(session, user_id):
-                await create_user(session, user_id)
-
-            await update_user_token(session, user_id, response.json()["access"], 3)
-
-
-        await message.answer("You're successfully authorized")
-    else:
-        res = response.json()
-        if res.get("non_field_errors"):
-            await message.answer("\n".join(i for i in res["non_field_errors"]))
+    """Handle user login - simple version"""
+    try:
+        parts = message.text.split()
+        if len(parts) != 3:
+            await message.answer(
+                "Usage: /login identifier password\n"
+                "Example: <code>/login user@example.com mypassword</code>"
+            )
             return
 
-        await message.answer(response.json().get("message", "Error :("))
+        _, identifier, password = parts
+
+        identifier = identifier.strip()
+        password = password.strip()
+
+        url = f"{settings.HOST}/api/v1/token/"
+        response = await request_post(url, identifier=identifier, password=password)
+
+        if response.status_code == 200:
+            data = response.json()
+            access_token = data["access"]
+
+            user_id = message.from_user.id
+            async with async_session() as session:
+                await get_or_create_user(session, user_id)
+                await update_user_token(session, user_id, access_token, 50)
+
+            await message.answer(
+                "✅ Login successful!\n\n"
+                "You can now:\n"
+                "/products - Browse products\n"
+                "/my_cart - View your cart\n\n"
+                "Happy shopping! 🛒"
+            )
+        else:
+            data = response.json()
+            error_msg = data.get("message", "Login failed")
+
+            if "non_field_errors" in data:
+                errors = "\n".join(data["non_field_errors"])
+                await message.answer(f"❌ {errors}")
+            else:
+                await message.answer(f"❌ {error_msg}")
+
+    except Exception as e:
+        error = str(e)
+        if len(error) > 100:
+            error = error[:100] + "..."
+        await message.answer(f"❌ Error: {error}")

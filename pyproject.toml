@@ -7,8 +7,39 @@ requires-python = ">=3.12"
 dependencies = [
     "aiogram>=3.22.0",
     "asyncpg>=0.31.0",
+    "black>=25.11.0",
+    "flake8>=7.3.0",
+    "isort>=7.0.0",
     "pydantic-settings>=2.12.0",
     "requests>=2.32.5",
     "sqlalchemy[asyncio]>=2.0.44",
     "stripe>=14.0.1",
 ]
+
+[tool.isort]
+profile = "black"
+line_length = 79
+multi_line_output = 3
+include_trailing_comma = true
+use_parentheses = true
+skip = ["__init__.py"]
+extend_skip = [".venv", "venv", "migrations"]
+
+[tool.black]
+line-length = 88
+target-version = ['py312']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+    \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''
